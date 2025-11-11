@@ -32,7 +32,7 @@ public class SlayerService {
             data.setCurrentSlayerTier(0);
         }
     }
-    
+
     @Getter
     @Setter
     public static class test {
