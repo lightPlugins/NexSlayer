@@ -1,0 +1,13 @@
+general:
+  prefix: '<yellow>[<gold>NEXUS<yellow>]</yellow>'
+  no-permission: '<red>You do not have permission to perform this command.</red>'
+  reload: '<gray>Configuration reloaded <yellow>successfully<gray>!'#
+  switch-language: '<gray>Language switched to <yellow><nex_language><gray>!'
+# ######################################################  #
+#                   INVENTORY Translations                #
+# ######################################################  #
+# Here you can localize the inventory titles and content.
+# The Inventory name is the namespace of the inventory
+# It is the .yml name without the .yml extension
+# In this case the inventory namespace is 'test-inv'.
+inventories: []

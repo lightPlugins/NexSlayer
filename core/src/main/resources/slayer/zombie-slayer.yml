@@ -1,0 +1,113 @@
+name: 'Zombie Slayer'
+
+inventory:
+  item: 'minecraft:rotten_flesh'
+  display-name: '<red>☠ <dark_purple>Revenant Horror'
+  lore:
+    - '<gray>Abhorrent Zombie stuck between'
+    - '<gray>life and death for an eternity.'
+    - ' '
+    - '<gray>Zombie Slayer <dark_purple>LVL #level#'
+    - '<gray>XP <dark_purple>#current-xp# <gray>/ <dark_purple>#needed-xp#'
+    - ' '
+    - '<dark_purple>Click to view Boss!'
+
+slayer-levels:
+  - 50
+  - 100
+  - 300
+  - 500
+  - 1000
+  - 15000
+
+level-up-actions:
+  - level: 1
+    actions:
+      - id: vault-add
+        amount: '2000'
+        multiplier: '1'
+  - level: 2
+    actions:
+      - id: vault-add
+        amount: '2000'
+        multiplier: '1'
+  - level: 3
+    actions:
+      - id: vault-add
+        amount: '2000'
+        multiplier: '1'
+  - level: 4
+    actions:
+      - id: vault-add
+        amount: '2000'
+        multiplier: '1'
+  - level: 5
+    actions:
+      - id: vault-add
+        amount: '2000'
+        multiplier: '1'
+  - level: 6
+    actions:
+      - id: vault-add
+        amount: '2000'
+        multiplier: '1'
+
+slayer-tiers:
+  - name: 'Zombie Slayer I'
+    item: rotten_flesh
+    display-name: '<red>☠ <dark_purple>Revenant Horror I'
+    lore:
+      - '<dark_gray>Beginner'
+      - ' '
+      - '<gray>Health: <red>#boss-health#♥'
+      - '<gray>Damage: <red>#boss-damage# <gray> per hit'
+      - ' '
+      - '<gray>Tasks'
+      - '<gray>Kill <green>#amount#<gray>x <green>#mob# <gray>until'
+      - '<green>#boss# <gray>is spawning.'
+      - ' '
+      - '<gray>Costs to start <gold>#costs# Coins'
+      - ' '
+      - '#status#'
+    mob-settings:
+      mob: 'minecraft:zombie'
+      kills: 10-12
+      chance: 25 #(optional) instead of 10-12 kills boss will spawn with a 25% chance
+      death-actions: []
+    boss-settings:
+      boss-id: 'zombie-t1-boss' #The id of the boss you created in the bosses directory (File name without the .yml extension)
+      time-to-kill: 180 #How long in seconds the boss will be alive for
+      slayer-xp: 20 #How much XP the player will receive when the boss is defeated
+      teleport-to-player: 20 #How far away from the player the boss will teleport to
+      remove-boss:
+        on-teleport: true #if true, the boss will be removed when the player teleports
+        on-death: true #if true, the boss will be removed when the player dies
+        on-quit: true #if true, the boss will be removed when the player quits the server
+      remove-vanilla-loot: true # remove the vanilla loot from the boss
+      instant-target-player: true #if true, the boss will instantly target the player
+      death-actions:
+        - id: item
+          item: 'minecraft:rotten_flesh'
+          chance: 100
+          auto-pickup: true
+          amount: 1
+        - id: nexdrops #Integration with NexDrops. You can specify unlimited drop-tables built in NexDrops
+          drop-table-id:
+            - 'zombie-t1' # The id of the drop-table you created in the drop-tables directory from NexDrops (File name without the .yml extension)
+        - id: message
+          message: '<dark_purple>Revenant Horror I <gray>has been defeated!'
+    slayer-settings:
+      start-costs: 1500 #How much money the player needs to start the slayer
+      requirements:
+        - id: permission
+          permission: 'slayer.zombie.start'
+          send-message: true #(optional) if true, the player will receive a message when they don't have permission to start the slayer' (default is true)
+          as-actionbar: false #(optional) if true, the message will be sent as an actionbar to the player (default is false)
+          message: '<red>You do not have permission to start this slayer.' #(optional) if send-message is true, this message will be sent to the player
+        - id: slayer-level
+          slayer: 'zombie-slayer'
+          min-level: 0
+          send-message: true
+          as-actionbar: false
+          message: '<red>You need to be a Zombie Slayer LVL <dark_red>#level# <red>to start this slayer!'
+        #...(optional) more requirements can be added

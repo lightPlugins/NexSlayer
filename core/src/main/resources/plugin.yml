@@ -1,0 +1,9 @@
+name: ${name}
+version: ${version}
+main: io.nexstudios.slayer.NexSlayer
+api-version: '1.21'
+depend:
+  - Nexus
+softdepend:
+  - MythicMobs
+  - Orestack
