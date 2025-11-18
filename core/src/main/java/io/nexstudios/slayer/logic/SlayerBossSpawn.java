@@ -2,6 +2,7 @@ package io.nexstudios.slayer.logic;
 
 import io.lumine.mythic.api.exceptions.InvalidMobTypeException;
 import io.nexstudios.nexus.bukkit.NexusPlugin;
+import io.nexstudios.nexus.bukkit.hologram.NexHologram;
 import io.nexstudios.nexus.bukkit.hologram.NexHologramService;
 import io.nexstudios.nexus.bukkit.hooks.mythicmobs.MythicMobsHook;
 import io.nexstudios.nexus.bukkit.platform.NexServices;
@@ -25,13 +26,34 @@ public class SlayerBossSpawn {
     @Nullable
     public LivingEntity spawnBoss(Location location, Player player, SlayerBoss boss) {
 
-        if(NexusPlugin.getInstance().getMythicMobsHook() != null) {
-            LivingEntity le = MythicMobsHook.spawnMythicMob(boss.getId(), location);
-            applyHolo(boss, location, player, le);
-            return le;
+        String[] split = boss.getType().split(":");
+
+        if(split.length != 2) {
+            NexSlayer.nexusLogger.warning(List.of(
+                    "Something went wrong with the boss spawn from boss id " + boss.getId(),
+                    "Boss type " + boss.getType() + " is not in format <namespace>:<id>"
+            ));
+            return null;
         }
 
-        EntityType type = EntityType.valueOf(boss.getType());
+        if(split[0].equalsIgnoreCase("mythicmobs")) {
+            if(NexusPlugin.getInstance().getMythicMobsHook() != null) {
+                LivingEntity le = MythicMobsHook.spawnMythicMob(boss.getId(), location);
+                applyHolo(boss, location, player, le);
+                return le;
+            }
+        }
+
+        if(!split[0].equalsIgnoreCase("minecraft")) {
+            NexSlayer.nexusLogger.warning(List.of(
+                    "Something went wrong with the boss spawn from boss id " + boss.getId(),
+                    "Boss type " + boss.getType() + " is not a valid namespace:key value!"
+            ));
+            return null;
+        }
+
+
+        EntityType type = EntityType.valueOf(split[1]);
 
         if(!type.isSpawnable()) {
             NexSlayer.nexusLogger.warning(List.of(
@@ -48,6 +70,7 @@ public class SlayerBossSpawn {
                 .damage(boss.getSettings().getDamage())
                 .aggressive(boss.getSettings().getAggressive())
                 .baby(boss.getSettings().getBaby())
+                .disableDrops(boss.getSettings().getDisableDrops())
                 .speed(boss.getSettings().getSpeed())
                 .scale(boss.getSettings().getScale())
                 .armor(boss.getSettings().getArmor())
@@ -82,7 +105,4 @@ public class SlayerBossSpawn {
                         .attachTo(le)
         );
     }
-
-
-
 }

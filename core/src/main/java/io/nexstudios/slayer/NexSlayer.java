@@ -9,12 +9,18 @@ import io.nexstudios.nexus.bukkit.language.NexusLanguage;
 import io.nexstudios.nexus.bukkit.utils.NexusLogger;
 import io.nexstudios.nexus.libs.commands.PaperCommandManager;
 import io.nexstudios.slayer.commands.ReloadCommand;
+import io.nexstudios.slayer.commands.SlayerCommand;
+import io.nexstudios.slayer.logic.SlayerFactory;
+import io.nexstudios.slayer.logic.SlayerService;
 import io.nexstudios.slayer.slayer.SlayerBossReader;
 import io.nexstudios.slayer.slayer.SlayerReader;
 import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 public class NexSlayer extends JavaPlugin {
@@ -32,6 +38,8 @@ public class NexSlayer extends JavaPlugin {
     private InvService invService;
     public SlayerReader slayerReader;
     public SlayerBossReader slayerBossReader;
+    public SlayerFactory slayerFactory;
+    public SlayerService slayerService;
 
     @Override
     public void onLoad() {
@@ -49,9 +57,11 @@ public class NexSlayer extends JavaPlugin {
         commandManager = new PaperCommandManager(this);
         nexusLogger.info("Load files and drop tables ...");
         onReload();
+        slayerService = new SlayerService(slayerReader, slayerBossReader);
         registerCommands();
         registerEvents();
-        this.invService = new InvService(this, new DefaultNexItemRenderer(), nexusLanguage);
+        slayerFactory = new SlayerFactory(this, slayerService);
+        invService = new InvService(this, new DefaultNexItemRenderer(), nexusLanguage);
         nexusLogger.info("Successfully started up.");
     }
 
@@ -71,6 +81,20 @@ public class NexSlayer extends JavaPlugin {
     public void registerCommands() {
 
         commandManager.registerCommand(new ReloadCommand());
+        commandManager.registerCommand(new SlayerCommand(slayerService));
+
+        commandManager.getCommandCompletions().registerAsyncCompletion("slayer_ids", context ->
+                new ArrayList<>(slayerService.getAllSlayerIds())
+        );
+
+        commandManager.getCommandCompletions().registerAsyncCompletion("slayer_tiers", ctx -> {
+            List<String> result = new ArrayList<>();
+            int max = slayerService.getMaxTierCount();
+            for (int i = 1; i <= max; i++) {
+                result.add(String.valueOf(i));
+            }
+            return result;
+        });
 
         int size = commandManager.getRegisteredRootCommands().size();
         nexusLogger.info("Successfully registered " + size  + " command(s).");
@@ -78,13 +102,17 @@ public class NexSlayer extends JavaPlugin {
     }
 
     private void readSlayers() {
-        slayerReader = new SlayerReader(slayerFiles, nexusLogger);
-        slayerReader.read();
+        if (slayerReader == null) {
+            slayerReader = new SlayerReader(slayerFiles, nexusLogger);
+        }
+        slayerReader.read(); // immer nur re-read auf derselben Instanz
     }
 
     private void readBosses() {
-        slayerBossReader = new SlayerBossReader(bossFiles, nexusLogger);
-        slayerBossReader.read();
+        if (slayerBossReader == null) {
+            slayerBossReader = new SlayerBossReader(bossFiles, nexusLogger);
+        }
+        slayerBossReader.read(); // immer nur re-read auf derselben Instanz
     }
 
     private void registerEvents() {

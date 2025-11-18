@@ -1,43 +1,452 @@
 package io.nexstudios.slayer.logic;
 
-import lombok.Getter;
-import lombok.Setter;
+import io.nexstudios.slayer.NexSlayer;
+import io.nexstudios.slayer.slayer.SlayerReader;
+import io.nexstudios.slayer.slayer.models.Slayer;
+import io.nexstudios.slayer.slayer.models.SlayerBoss;
+import io.nexstudios.slayer.slayer.SlayerBossReader;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 public class SlayerService {
 
-    public SlayerService() {}
-
-    public HashMap<UUID, SlayerData> slayerData = new HashMap<>();
-
-    public SlayerData getSlayerData(UUID uuid) {
-        return slayerData.get(uuid);
+    public enum Stage {
+        KILLING,       // Spieler muss Mobs töten
+        BOSS_ACTIVE,   // Boss ist gespawnt
+        COMPLETED,     // fertig
+        FAILED         // fehlgeschlagen (Timeout, Quit, etc.)
     }
 
-    public void addKill(UUID uuid) {
-        SlayerData data = slayerData.get(uuid);
-        if (data != null) {
-            data.setCurrentKills(data.getCurrentKills() + 1);
+    public static class ActiveSlayer {
+
+        private final UUID playerId;
+        private final Slayer slayer;
+        private final Slayer.SlayerTier tier;
+
+        private Stage stage;
+        private int requiredKills;
+        private int currentKills;
+
+        private UUID bossUuid;
+        private long bossSpawnTime;
+        private long bossDeadline; // 0 = kein Timeout
+
+        public ActiveSlayer(UUID playerId,
+                            Slayer slayer,
+                            Slayer.SlayerTier tier,
+                            int requiredKills) {
+            this.playerId = playerId;
+            this.slayer = slayer;
+            this.tier = tier;
+            this.requiredKills = requiredKills;
+            this.stage = Stage.KILLING;
+            this.currentKills = 0;
+        }
+
+        public UUID getPlayerId() {
+            return playerId;
+        }
+
+        public Slayer getSlayer() {
+            return slayer;
+        }
+
+        public Slayer.SlayerTier getTier() {
+            return tier;
+        }
+
+        public Stage getStage() {
+            return stage;
+        }
+
+        public void setStage(Stage stage) {
+            this.stage = stage;
+        }
+
+        public int getRequiredKills() {
+            return requiredKills;
+        }
+
+        public int getCurrentKills() {
+            return currentKills;
+        }
+
+        public void incrementKills() {
+            this.currentKills++;
+        }
+
+        public UUID getBossUuid() {
+            return bossUuid;
+        }
+
+        public void setBossUuid(UUID bossUuid) {
+            this.bossUuid = bossUuid;
+        }
+
+        public long getBossSpawnTime() {
+            return bossSpawnTime;
+        }
+
+        public void setBossSpawnTime(long bossSpawnTime) {
+            this.bossSpawnTime = bossSpawnTime;
+        }
+
+        public long getBossDeadline() {
+            return bossDeadline;
+        }
+
+        public void setBossDeadline(long bossDeadline) {
+            this.bossDeadline = bossDeadline;
         }
     }
 
-    public void resetProgress(UUID uuid) {
-        SlayerData data = slayerData.get(uuid);
-        if (data != null) {
-            data.setCurrentKills(0);
-            data.setSlayerActive(false);
-            data.setCurrentSlayerId(null);
-            data.setCurrentSlayerTier(0);
+    private final SlayerReader slayerReader;
+    private final SlayerBossReader bossReader;
+    private final SlayerBossSpawn bossSpawn;
+
+    // Player → Aktiver Slayer
+    private final Map<UUID, ActiveSlayer> activeSlayers = new HashMap<>();
+
+    public SlayerService(SlayerReader slayerReader, SlayerBossReader bossReader) {
+        this.slayerReader = slayerReader;
+        this.bossReader = bossReader;
+        this.bossSpawn = new SlayerBossSpawn();
+    }
+
+    public ActiveSlayer getActiveSlayerByBossUuid(UUID bossUuid) {
+        if (bossUuid == null) return null;
+        for (ActiveSlayer active : activeSlayers.values()) {
+            if (bossUuid.equals(active.getBossUuid())) {
+                return active;
+            }
+        }
+        return null;
+    }
+
+    public java.util.List<String> getAllSlayerIds() {
+        return slayerReader.getSlayers()
+                .keySet()
+                .stream()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .collect(Collectors.toList());
+    }
+
+    public java.util.List<String> getTierIndicesFor(String slayerId) {
+        Slayer slayer = slayerReader.getSlayerById(slayerId);
+        if (slayer == null || slayer.getSlayerTiers() == null) {
+            return java.util.Collections.emptyList();
+        }
+        java.util.List<String> result = new java.util.ArrayList<>();
+        for (int i = 0; i < slayer.getSlayerTiers().size(); i++) {
+            result.add(String.valueOf(i + 1)); // 1-basiert
+        }
+        return result;
+    }
+
+    public int getMaxTierCount() {
+        int max = 0;
+        for (Slayer slayer : slayerReader.getSlayers().values()) {
+            if (slayer.getSlayerTiers() != null) {
+                max = Math.max(max, slayer.getSlayerTiers().size());
+            }
+        }
+        return max;
+    }
+
+    public boolean isBossOwnedBy(UUID bossUuid, UUID playerId) {
+        ActiveSlayer active = getActiveSlayerByBossUuid(bossUuid);
+        if (active == null) return false;
+        return active.getPlayerId().equals(playerId);
+    }
+
+    public boolean hasActiveSlayer(Player player) {
+        return activeSlayers.containsKey(player.getUniqueId());
+    }
+
+    public ActiveSlayer getActiveSlayer(Player player) {
+        return activeSlayers.get(player.getUniqueId());
+    }
+
+    /**
+     * Startet einen Slayer auf Basis einer slayerId und eines Tier-Index (1-basiert).
+     */
+    public boolean startSlayer(Player player, String slayerId, int tierIndex) {
+
+        Slayer slayer = slayerReader.getSlayerById(slayerId);
+        if (slayer == null) {
+            NexSlayer.nexusLogger.warning("Unbekannter Slayer: " + slayerId);
+            return false;
+        }
+
+        List<Slayer.SlayerTier> tiers = slayer.getSlayerTiers();
+        int idx = tierIndex - 1;
+        if (tiers == null || idx < 0 || idx >= tiers.size()) {
+            NexSlayer.nexusLogger.warning("Ungültiges Tier " + tierIndex + " für Slayer " + slayerId);
+            return false;
+        }
+
+        Slayer.SlayerTier tier = tiers.get(idx);
+
+        // Kills aus MobSettings lesen (erstmal als einfache Zahl)
+        if (tier.getMobSettings() == null || tier.getMobSettings().getKills() == null) {
+            NexSlayer.nexusLogger.warning("MobSettings oder Kills fehlen für Slayer " + slayerId + " Tier " + tierIndex);
+            return false;
+        }
+
+        int requiredKills;
+        try {
+            requiredKills = Integer.parseInt(tier.getMobSettings().getKills());
+        } catch (NumberFormatException e) {
+            NexSlayer.nexusLogger.warning("Kills ist keine Zahl für Slayer " + slayerId + " Tier " + tierIndex +
+                    " (Wert: " + tier.getMobSettings().getKills() + ")");
+            return false;
+        }
+
+        ActiveSlayer active = new ActiveSlayer(player.getUniqueId(), slayer, tier, requiredKills);
+        activeSlayers.put(player.getUniqueId(), active);
+
+        return true;
+    }
+
+    /**
+     * Entfernt den aktiven Slayer eines Spielers und macht ggf. Cleanup.
+     */
+    public void stopSlayer(Player player) {
+        ActiveSlayer active = activeSlayers.remove(player.getUniqueId());
+        if (active == null) {
+            return;
+        }
+
+        // Boss ggf. entfernen
+        if (active.getBossUuid() != null) {
+            Entity boss = Bukkit.getEntity(active.getBossUuid());
+            if (boss != null && !boss.isDead()) {
+                boss.remove();
+            }
         }
     }
 
-    @Getter
-    @Setter
-    public static class test {
+    /**
+     * Wird von VanillaDeathEvent aufgerufen.
+     */
+    public void handleVanillaMobDeath(Player killer, EntityType type) {
 
+        ActiveSlayer active = activeSlayers.get(killer.getUniqueId());
+        if (active == null) {
+            return;
+        }
 
+        if (active.getStage() != Stage.KILLING) {
+            return;
+        }
 
+        Slayer.SlayerTier tier = active.getTier();
+        if (tier.getMobSettings() == null || tier.getMobSettings().getMob() == null) {
+            return;
+        }
+
+        String rawMob = tier.getMobSettings().getMob().toLowerCase(); // z.B. "minecraft:zombie" oder "mythicmobs:boss"
+        String namespace = "minecraft";
+        String key = rawMob;
+
+        String[] split = rawMob.split(":", 2);
+        if (split.length == 2) {
+            namespace = split[0];
+            key = split[1];
+        }
+
+        // Nicht für mythicmobs-Einträge zuständig
+        if (!namespace.equals("minecraft")) {
+            return;
+        }
+
+        String bukkitName = type.name().toLowerCase(); // "zombie"
+        if (!bukkitName.equals(key)) {
+            return; // falscher Mob
+        }
+
+        active.incrementKills();
+
+        killer.sendMessage("§a[Slayer] §7Kills: §e" + active.getCurrentKills() + "§7/§e" + active.getRequiredKills());
+
+        if (active.getCurrentKills() >= active.getRequiredKills()) {
+            spawnBoss(killer, active);
+        }
+    }
+
+    public void handleMythicMobDeath(Player killer, String mythicInternalName) {
+
+        ActiveSlayer active = activeSlayers.get(killer.getUniqueId());
+        if (active == null) {
+            return;
+        }
+
+        if (active.getStage() != Stage.KILLING) {
+            return;
+        }
+
+        Slayer.SlayerTier tier = active.getTier();
+        if (tier.getMobSettings() == null || tier.getMobSettings().getMob() == null) {
+            return;
+        }
+
+        String rawMob = tier.getMobSettings().getMob().toLowerCase(); // z.B. "mythicmobs:my_boss"
+        String namespace = "minecraft";
+        String key = rawMob;
+
+        String[] split = rawMob.split(":", 2);
+        if (split.length == 2) {
+            namespace = split[0];
+            key = split[1];
+        }
+
+        // Nur für mythicmobs-Einträge zuständig
+        if (!namespace.equals("mythicmobs")) {
+            return;
+        }
+
+        String internalName = mythicInternalName.toLowerCase();
+        if (!internalName.equals(key)) {
+            return; // falscher MythicMob
+        }
+
+        active.incrementKills();
+
+        killer.sendMessage("§a[Slayer] §7Kills: §e" + active.getCurrentKills() + "§7/§e" + active.getRequiredKills());
+
+        if (active.getCurrentKills() >= active.getRequiredKills()) {
+            // Boss-Phase starten (kann wieder Mythic oder Vanilla sein, je nach Boss-Config)
+            spawnBoss(killer, active);
+        }
+    }
+
+    private void spawnBoss(Player player, ActiveSlayer active) {
+
+        Slayer.SlayerTier.BossSettings bossSettings = active.getTier().getBossSettings();
+        if (bossSettings == null) {
+            NexSlayer.nexusLogger.warning("Keine BossSettings für Slayer " +
+                    active.getSlayer().getId() + " Tier " + active.getTier().getName());
+            completeSlayer(player, active); // direkt abschließen, wenn kein Boss definiert
+            return;
+        }
+
+        if (bossSettings.getBossId() == null) {
+            NexSlayer.nexusLogger.warning("Keine bossId in BossSettings für Slayer " +
+                    active.getSlayer().getId() + " Tier " + active.getTier().getName());
+            completeSlayer(player, active);
+            return;
+        }
+
+        SlayerBoss boss = bossReader.getBossById(bossSettings.getBossId());
+        if (boss == null) {
+            NexSlayer.nexusLogger.warning("SlayerBoss mit ID " + bossSettings.getBossId() + " nicht gefunden.");
+            completeSlayer(player, active);
+            return;
+        }
+
+        LivingEntity le = bossSpawn.spawnBoss(player.getLocation(), player, boss);
+        if (le == null) {
+            NexSlayer.nexusLogger.warning("Boss konnte nicht gespawnt werden (ID " + bossSettings.getBossId() + ").");
+            completeSlayer(player, active);
+            return;
+        }
+
+        active.setBossUuid(le.getUniqueId());
+        active.setStage(Stage.BOSS_ACTIVE);
+        active.setBossSpawnTime(System.currentTimeMillis());
+
+        if (bossSettings.getTimeToKill() != null && bossSettings.getTimeToKill() > 0) {
+            long deadline = System.currentTimeMillis() + bossSettings.getTimeToKill() * 1000L;
+            active.setBossDeadline(deadline);
+            scheduleTimeoutCheck(player.getUniqueId());
+        }
+
+        player.sendMessage("§a[Slayer] §7Der Boss wurde gespawnt!");
+    }
+
+    private void scheduleTimeoutCheck(UUID playerId) {
+        Bukkit.getScheduler().runTaskLater(NexSlayer.getInstance(), () -> {
+            ActiveSlayer active = activeSlayers.get(playerId);
+            if (active == null) {
+                return;
+            }
+            if (active.getStage() != Stage.BOSS_ACTIVE) {
+                return;
+            }
+            if (active.getBossDeadline() == 0L) {
+                return;
+            }
+            if (System.currentTimeMillis() < active.getBossDeadline()) {
+                return;
+            }
+
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null && player.isOnline()) {
+                player.sendMessage("§c[Slayer] §7Du hast den Boss nicht rechtzeitig getötet.");
+            }
+
+            failSlayer(playerId);
+
+        }, 20L * 5); // Check alle 5 Sekunden; reicht für erstes MVP
+    }
+
+    private void failSlayer(UUID playerId) {
+        ActiveSlayer active = activeSlayers.get(playerId);
+        if (active == null) {
+            return;
+        }
+        active.setStage(Stage.FAILED);
+
+        // Boss despawnen
+        if (active.getBossUuid() != null) {
+            Entity boss = Bukkit.getEntity(active.getBossUuid());
+            if (boss != null && !boss.isDead()) {
+                boss.remove();
+            }
+        }
+
+        Player player = Bukkit.getPlayer(playerId);
+        if (player != null && player.isOnline()) {
+            player.sendMessage("§c[Slayer] §7Dein Slayer ist fehlgeschlagen.");
+        }
+
+        activeSlayers.remove(playerId);
+    }
+
+    /**
+     * Wird beim Boss-Tod aufgerufen (Vanilla/Mythic je nach Implementation).
+     */
+    public void handleBossDeath(LivingEntity boss) {
+        UUID bossId = boss.getUniqueId();
+
+        for (ActiveSlayer active : activeSlayers.values()) {
+            if (bossId.equals(active.getBossUuid())) {
+                Player player = Bukkit.getPlayer(active.getPlayerId());
+                completeSlayer(player, active);
+                break;
+            }
+        }
+    }
+
+    private void completeSlayer(Player player, ActiveSlayer active) {
+
+        active.setStage(Stage.COMPLETED);
+
+        if (player != null && player.isOnline()) {
+            player.sendMessage("§a[Slayer] §7Du hast deinen Slayer abgeschlossen!");
+        }
+
+        // TODO: slayerXp vergeben, deathActions/levelUpActions über Nexus Action API ausführen
+
+        activeSlayers.remove(active.getPlayerId());
     }
 }

@@ -85,6 +85,7 @@ public class SlayerBossReader {
         if (sec.contains("no-damage-ticks")) s.setNoDamageTicks(sec.getInt("no-damage-ticks"));
         if (sec.contains("aggressive")) s.setAggressive(sec.getBoolean("aggressive"));
         if (sec.contains("baby")) s.setBaby(sec.getBoolean("baby"));
+        if (sec.contains("disable-drops")) s.setDisableDrops(sec.getBoolean("disable-drops", false));
 
         ConfigurationSection equipSec = sec.getConfigurationSection("equipment");
         if (equipSec != null) {

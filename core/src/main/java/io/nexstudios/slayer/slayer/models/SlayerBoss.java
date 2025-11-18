@@ -32,6 +32,7 @@ public class SlayerBoss {
         private Integer noDamageTicks;
         private Boolean aggressive;
         private Boolean baby;
+        private Boolean disableDrops;
         private Equipment equipment;
 
         @Getter
