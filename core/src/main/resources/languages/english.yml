@@ -1,8 +1,23 @@
 general:
-  prefix: '<yellow>[<gold>NEXUS<yellow>]</yellow>'
+  prefix: '<gray>[<dark_purple>NEXSLAYER<gray>]<gray>'
   no-permission: '<red>You do not have permission to perform this command.</red>'
-  reload: '<gray>Configuration reloaded <yellow>successfully<gray>!'#
+  reload: '<gray>Configuration reloaded <yellow>successfully<gray>!'
   switch-language: '<gray>Language switched to <yellow><nex_language><gray>!'
+  player-not-found: '<red>Player not found!</red>'
+  player-only: '<red>This command can only be executed by players!</red>'
+slayer:
+  slayer-started-target: '<gray>Slayer <dark_purple><slayer> <gray>(Tier <dark_purple><tier><gray>) for <dark_purple><player> <gray>started!'
+  slayer-started: '<gray>Slayer <dark_purple><slayer> <gray>(Tier <dark_purple><tier><gray>) started!'
+  slayer-stopped-target: '<gray>Current slayer stopped for <dark_purple><player>!'
+  slayer-stopped: '<gray>Current slayer stopped!'
+  slayer-not-started: '<red>Could not stop slayer, because no slayer is running!</red>'
+  slayer-already-started: '<red>Player is already slaying!</red>'
+  slayer-not-found: '<gray>Slayer <dark_purple><slayer> <gray>(Tier <dark_purple><tier><gray>) not found!'
+  slayer-timeout: '<red>Slayer <dark_purple><slayer> <gray>(Tier <dark_purple><tier><gray>) timed out!'
+  slayer-failed: '<red>Slayer <dark_purple><slayer> <gray>(Tier <dark_purple><tier><gray>) failed!</red>'
+  slayer-completed: '<gray>Slayer <dark_purple><slayer> <gray>(Tier <dark_purple><tier><gray>) successfully completed!'
+  slayer-boss-spawned: '<gray>Boss <dark_purple><boss> <gray>spawned!'
+
 # ######################################################  #
 #                   INVENTORY Translations                #
 # ######################################################  #

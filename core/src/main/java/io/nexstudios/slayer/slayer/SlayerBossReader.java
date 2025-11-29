@@ -11,7 +11,7 @@ import java.util.*;
 
 public class SlayerBossReader {
 
-    private final NexusFileReader reader;
+    private NexusFileReader reader;
     private final NexusLogger logger;
     private final HashMap<String, SlayerBoss> bosses = new HashMap<>();
 
@@ -20,7 +20,8 @@ public class SlayerBossReader {
         this.logger = logger;
     }
 
-    public void read() {
+    public void read(NexusFileReader bossFiles) {
+        this.reader = bossFiles;
         bosses.clear();
         for (File file : reader.getFiles()) {
             String id = file.getName().replace(".yml", "");

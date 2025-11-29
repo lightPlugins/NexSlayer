@@ -9,18 +9,9 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import java.io.File;
 import java.util.*;
 
-/**
- * Liest Slayer-Definitionen aus YAML-Dateien (Bukkit YamlConfiguration)
- * und baut stark typisierte Modelle.
- * <p>
- * Regeln:
- * - slayer-levels: List<Double>
- * - Actions-Listen (z. B. actions, death-actions, requirements): List<Map<String, Object>>
- * - level-up-actions: Map<level, List<Map<String, Object>>>
- */
 public class SlayerReader {
 
-    private final NexusFileReader reader;
+    private NexusFileReader reader;
     private final HashMap<String, Slayer> slayers = new HashMap<>();
     private final NexusLogger logger;
 
@@ -29,7 +20,8 @@ public class SlayerReader {
         this.logger = logger;
     }
 
-    public void read() {
+    public void read(NexusFileReader slayerFiles) {
+        this.reader = slayerFiles;
         slayers.clear();
         for (File file : reader.getFiles()) {
             YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
@@ -115,8 +107,6 @@ public class SlayerReader {
         for (Map<?, ?> tierMap : tiersConfig) {
             if (tierMap == null) continue;
 
-            // ... existing code ...
-            // Wir bauen eine temporäre YamlConfiguration im Speicher aus der Map auf
             YamlConfiguration tierSection = mapToYamlConfiguration(tierMap);
 
             Slayer.SlayerTier tier = new Slayer.SlayerTier();
@@ -130,12 +120,12 @@ public class SlayerReader {
             if (mobSec != null) {
                 Slayer.SlayerTier.MobSettings mob = new Slayer.SlayerTier.MobSettings();
                 mob.setMob(mobSec.getString("mob", "minecraft:zombie"));
-                // kills kann Range "10-12" sein → als String
+
                 mob.setKills(mobSec.getString("kills", "1"));
                 if (mobSec.contains("chance")) {
                     mob.setChance(mobSec.getString("chance", "100"));
                 }
-                // death-actions als List<Map<String, Object>>
+
                 mob.setDeathActions(getActionList(mobSec, "death-actions"));
                 tier.setMobSettings(mob);
             } else {
@@ -170,7 +160,7 @@ public class SlayerReader {
                     boss.setInstantTargetPlayer(bossSec.getBoolean("instant-target-player", false));
                 }
 
-                // death-actions als List<Map<String, Object>>
+                // death-actions as List<Map<String, Object>>
                 boss.setDeathActions(getActionList(bossSec, "death-actions"));
 
                 tier.setBossSettings(boss);
@@ -185,7 +175,7 @@ public class SlayerReader {
                 if (settingsSec.contains("start-costs")) {
                     settings.setStartCosts(settingsSec.getDouble("start-costs", 0D));
                 }
-                // requirements als List<Map<String, Object>>
+                // requirements as List<Map<String, Object>>
                 settings.setRequirements(getActionList(settingsSec, "requirements"));
                 tier.setSlayerSettings(settings);
             } else {
@@ -213,10 +203,8 @@ public class SlayerReader {
                 setRecursively(yaml, path, e.getValue());
             }
         } else if (value instanceof List<?> list) {
-            // Listen direkt setzen (YamlConfiguration kann damit umgehen)
             yaml.set(basePath, list);
         } else {
-            // Skalarer Wert
             yaml.set(basePath, value);
         }
     }

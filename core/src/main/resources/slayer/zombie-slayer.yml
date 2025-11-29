@@ -86,14 +86,6 @@ slayer-tiers:
       remove-vanilla-loot: true # remove the vanilla loot from the boss
       instant-target-player: true #if true, the boss will instantly target the player
       death-actions:
-        - id: item
-          item: 'minecraft:rotten_flesh'
-          chance: 100
-          auto-pickup: true
-          amount: 1
-        - id: nexdrops #Integration with NexDrops. You can specify unlimited drop-tables built in NexDrops
-          drop-table-id:
-            - 'zombie-t1' # The id of the drop-table you created in the drop-tables directory from NexDrops (File name without the .yml extension)
         - id: message
           message: '<dark_purple>Revenant Horror I <gray>has been defeated!'
     slayer-settings:

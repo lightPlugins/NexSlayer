@@ -18,6 +18,7 @@ settings:
   no-damage-ticks: 10
   aggressive: true
   baby: false
+  disable-drops: true
   equipment:
     head: 'minecraft:iron_helmet'
     body: 'minecraft:diamond_chestplate'
@@ -43,6 +44,6 @@ hologram:
     line-width: 1000.0
     update-interval: 10
   lines:
-    - '<red>Time left: <dark_red>#time#'
-    - '<red>#player# <white>´s Zombie Slayer Boss'
-    - '<red>#current-health# <gray>/ <dark_red>#max-health#'
+    - '<red>Time left: <dark_red><time>'
+    - '<red><player> <white>´s Zombie Slayer Boss'
+    - '<red><current-health> <gray>/ <dark_red><max-health>'

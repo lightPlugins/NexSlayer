@@ -10,7 +10,11 @@ import io.nexstudios.nexus.bukkit.utils.StringUtils;
 import io.nexstudios.slayer.NexSlayer;
 import io.nexstudios.slayer.slayer.models.SlayerBoss;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Location;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -84,24 +88,51 @@ public class SlayerBossSpawn {
 
         applyHolo(boss, location, player, le);
 
-        return null;
+        return le;
     }
 
     private void applyHolo(SlayerBoss boss, Location location, Player player, LivingEntity le) {
-        List<Component> holoLines = new ArrayList<>();
-
-        for(String line : boss.getHologram().getLines()) {
-            holoLines.add(NexSlayer.getInstance().getMessageSender().stringToComponent(player, line));
-        }
 
         NexHologramService.Handle bossHolo = NexusPlugin.getInstance().nexHoloService.register(
                 new NexHologramService.Spec()
                         .base(location.add(
                                 boss.getHologram().getSettings().getOffset().getX(),
                                 boss.getHologram().getSettings().getOffset().getY(),
-                                boss.getHologram().getSettings().getOffset().getZ()))
-                        .perPlayer(p -> holoLines)
-                        .refreshTicks(10)
+                                boss.getHologram().getSettings().getOffset().getZ()
+                        ))
+                        .perPlayer(p -> {
+                            // Zeit über SlayerService (ActiveSlayer.bossDeadline)
+                            int remainingTime = NexSlayer.getInstance()
+                                    .getSlayerService()
+                                    .getRemainingBossTimeSeconds(p.getUniqueId());
+
+                            if (remainingTime < 0) {
+                                remainingTime = 0;
+                            }
+
+                            int minutes = remainingTime / 60;
+                            int seconds = remainingTime % 60;
+                            String formattedTime = String.format("%d:%02d", minutes, seconds);
+
+                            double currentHealth = le.getHealth();
+                            double maxHealth = boss.getSettings().getHealth();
+
+                            TagResolver resolver = TagResolver.resolver(
+                                    Placeholder.parsed("time", formattedTime),
+                                    Placeholder.parsed("player", p.getName()),
+                                    Placeholder.parsed("current-health", String.format("%.0f", currentHealth)),
+                                    Placeholder.parsed("max-health", String.format("%.0f", maxHealth))
+                            );
+
+                            List<Component> lines = new ArrayList<>();
+                            for (String rawLine : boss.getHologram().getLines()) {
+                                Component line = MiniMessage.miniMessage().deserialize(rawLine, resolver);
+                                lines.add(line);
+                            }
+                            return lines;
+                        })
+                        // Update-Intervall aus der Boss-Konfiguration
+                        .refreshTicks(boss.getHologram().getSettings().getUpdateInterval())
                         .attachTo(le)
         );
     }

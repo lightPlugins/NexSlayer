@@ -105,14 +105,14 @@ public class NexSlayer extends JavaPlugin {
         if (slayerReader == null) {
             slayerReader = new SlayerReader(slayerFiles, nexusLogger);
         }
-        slayerReader.read(); // immer nur re-read auf derselben Instanz
+        slayerReader.read(slayerFiles); // immer nur re-read auf derselben Instanz
     }
 
     private void readBosses() {
         if (slayerBossReader == null) {
             slayerBossReader = new SlayerBossReader(bossFiles, nexusLogger);
         }
-        slayerBossReader.read(); // immer nur re-read auf derselben Instanz
+        slayerBossReader.read(bossFiles); // immer nur re-read auf derselben Instanz
     }
 
     private void registerEvents() {

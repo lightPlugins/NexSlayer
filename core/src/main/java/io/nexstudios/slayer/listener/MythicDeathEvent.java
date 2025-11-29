@@ -36,7 +36,7 @@ public class MythicDeathEvent implements IMythicDeathEvent {
         }
 
         // 1) MythicMob als normalen Slayer-Kill zählen (für mob: "mythicmobs:<id>")
-        slayerService.handleMythicMobDeath(killer, mythicMob.getInternalName());
+        slayerService.handleMythicMobDeath(killer, mythicMob.getInternalName(), living.getLocation());
 
         // 2) Gleichzeitig prüfen, ob es ein Slayer-Boss ist
         slayerService.handleBossDeath(living);

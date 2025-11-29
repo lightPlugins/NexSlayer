@@ -22,7 +22,7 @@ public class VanillaDeathEvent implements IVanillaDeathEvent {
             return;
         }
 
-        slayerService.handleVanillaMobDeath(killer, entity.getType());
+        slayerService.handleVanillaMobDeath(killer, entity.getType(), entity.getLocation());
         slayerService.handleBossDeath(entity);
     }
 }

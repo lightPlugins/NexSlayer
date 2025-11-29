@@ -1,11 +1,15 @@
 package io.nexstudios.slayer.logic;
 
+import io.nexstudios.nexus.bukkit.NexusPlugin;
 import io.nexstudios.slayer.NexSlayer;
 import io.nexstudios.slayer.slayer.SlayerReader;
 import io.nexstudios.slayer.slayer.models.Slayer;
 import io.nexstudios.slayer.slayer.models.SlayerBoss;
 import io.nexstudios.slayer.slayer.SlayerBossReader;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
@@ -238,7 +242,7 @@ public class SlayerService {
     /**
      * Wird von VanillaDeathEvent aufgerufen.
      */
-    public void handleVanillaMobDeath(Player killer, EntityType type) {
+    public void handleVanillaMobDeath(Player killer, EntityType type, Location spawnLocation) {
 
         ActiveSlayer active = activeSlayers.get(killer.getUniqueId());
         if (active == null) {
@@ -279,11 +283,11 @@ public class SlayerService {
         killer.sendMessage("§a[Slayer] §7Kills: §e" + active.getCurrentKills() + "§7/§e" + active.getRequiredKills());
 
         if (active.getCurrentKills() >= active.getRequiredKills()) {
-            spawnBoss(killer, active);
+            spawnBoss(killer, active, spawnLocation);
         }
     }
 
-    public void handleMythicMobDeath(Player killer, String mythicInternalName) {
+    public void handleMythicMobDeath(Player killer, String mythicInternalName, Location spawnLocation) {
 
         ActiveSlayer active = activeSlayers.get(killer.getUniqueId());
         if (active == null) {
@@ -325,37 +329,35 @@ public class SlayerService {
 
         if (active.getCurrentKills() >= active.getRequiredKills()) {
             // Boss-Phase starten (kann wieder Mythic oder Vanilla sein, je nach Boss-Config)
-            spawnBoss(killer, active);
+            spawnBoss(killer, active, spawnLocation);
         }
     }
 
-    private void spawnBoss(Player player, ActiveSlayer active) {
+    private void spawnBoss(Player player, ActiveSlayer active, Location spawnLocation) {
 
         Slayer.SlayerTier.BossSettings bossSettings = active.getTier().getBossSettings();
         if (bossSettings == null) {
-            NexSlayer.nexusLogger.warning("Keine BossSettings für Slayer " +
-                    active.getSlayer().getId() + " Tier " + active.getTier().getName());
+            NexSlayer.nexusLogger.warning("Could not spawn Boss for Slayer " + active.getSlayer().getId() + " Tier " + active.getTier().getName() + ": BossSettings is missing!");
             completeSlayer(player, active); // direkt abschließen, wenn kein Boss definiert
             return;
         }
 
         if (bossSettings.getBossId() == null) {
-            NexSlayer.nexusLogger.warning("Keine bossId in BossSettings für Slayer " +
-                    active.getSlayer().getId() + " Tier " + active.getTier().getName());
+            NexSlayer.nexusLogger.warning("Could not spawn Boss for Slayer " + active.getSlayer().getId() + " Tier " + active.getTier().getName() + ": BossId is missing!");
             completeSlayer(player, active);
             return;
         }
 
         SlayerBoss boss = bossReader.getBossById(bossSettings.getBossId());
         if (boss == null) {
-            NexSlayer.nexusLogger.warning("SlayerBoss mit ID " + bossSettings.getBossId() + " nicht gefunden.");
+            NexSlayer.nexusLogger.warning("Could not spawn Boss for Slayer " + active.getSlayer().getId() + " Tier " + active.getTier().getName() + ": SlayerBoss with ID " + bossSettings.getBossId() + " not found.");
             completeSlayer(player, active);
             return;
         }
 
-        LivingEntity le = bossSpawn.spawnBoss(player.getLocation(), player, boss);
+        LivingEntity le = bossSpawn.spawnBoss(spawnLocation, player, boss);
         if (le == null) {
-            NexSlayer.nexusLogger.warning("Boss konnte nicht gespawnt werden (ID " + bossSettings.getBossId() + ").");
+            NexSlayer.nexusLogger.warning("Could not spawn Boss for Slayer " + active.getSlayer().getId() + " Tier " + active.getTier().getName() + ": BossSpawn failed.");
             completeSlayer(player, active);
             return;
         }
@@ -369,8 +371,10 @@ public class SlayerService {
             active.setBossDeadline(deadline);
             scheduleTimeoutCheck(player.getUniqueId());
         }
-
-        player.sendMessage("§a[Slayer] §7Der Boss wurde gespawnt!");
+        TagResolver resolver = TagResolver.resolver(
+                Placeholder.parsed("boss", boss.getName())
+        );
+        NexSlayer.getInstance().getMessageSender().send(player, "slayer.slayer-boss-spawned", resolver);
     }
 
     private void scheduleTimeoutCheck(UUID playerId) {
@@ -385,18 +389,39 @@ public class SlayerService {
             if (active.getBossDeadline() == 0L) {
                 return;
             }
-            if (System.currentTimeMillis() < active.getBossDeadline()) {
+
+            long now = System.currentTimeMillis();
+            long deadline = active.getBossDeadline();
+
+            if (now < deadline) {
+                scheduleTimeoutCheck(playerId);
                 return;
             }
 
             Player player = Bukkit.getPlayer(playerId);
             if (player != null && player.isOnline()) {
-                player.sendMessage("§c[Slayer] §7Du hast den Boss nicht rechtzeitig getötet.");
+                NexSlayer.getInstance().getMessageSender().send(player, "slayer.slayer-timeout");
             }
 
             failSlayer(playerId);
 
-        }, 20L * 5); // Check alle 5 Sekunden; reicht für erstes MVP
+        }, 20L);
+    }
+
+    public int getRemainingBossTimeSeconds(UUID playerId) {
+        ActiveSlayer active = activeSlayers.get(playerId);
+        if (active == null) {
+            return 0;
+        }
+        long deadline = active.getBossDeadline();
+        if (deadline <= 0L) {
+            return 0;
+        }
+        long diffMillis = deadline - System.currentTimeMillis();
+        if (diffMillis <= 0L) {
+            return 0;
+        }
+        return (int) (diffMillis / 1000L);
     }
 
     private void failSlayer(UUID playerId) {
@@ -406,7 +431,6 @@ public class SlayerService {
         }
         active.setStage(Stage.FAILED);
 
-        // Boss despawnen
         if (active.getBossUuid() != null) {
             Entity boss = Bukkit.getEntity(active.getBossUuid());
             if (boss != null && !boss.isDead()) {
@@ -414,17 +438,19 @@ public class SlayerService {
             }
         }
 
+        TagResolver resolver = TagResolver.resolver(
+                Placeholder.parsed("boss", active.getSlayer().getName()),
+                Placeholder.parsed("tier", active.getTier().getName())
+        );
+
         Player player = Bukkit.getPlayer(playerId);
         if (player != null && player.isOnline()) {
-            player.sendMessage("§c[Slayer] §7Dein Slayer ist fehlgeschlagen.");
+            NexSlayer.getInstance().getMessageSender().send(player, "slayer.slayer-failed", resolver);
         }
 
         activeSlayers.remove(playerId);
     }
 
-    /**
-     * Wird beim Boss-Tod aufgerufen (Vanilla/Mythic je nach Implementation).
-     */
     public void handleBossDeath(LivingEntity boss) {
         UUID bossId = boss.getUniqueId();
 
@@ -441,9 +467,18 @@ public class SlayerService {
 
         active.setStage(Stage.COMPLETED);
 
+        TagResolver resolver = TagResolver.resolver(
+                Placeholder.parsed("boss", active.getSlayer().getName()),
+                Placeholder.parsed("tier", active.getTier().getName())
+        );
+
         if (player != null && player.isOnline()) {
-            player.sendMessage("§a[Slayer] §7Du hast deinen Slayer abgeschlossen!");
+            NexSlayer.getInstance().getMessageSender().send(player, "slayer.slayer-completed", resolver);
+            NexusPlugin.getInstance().getActionFactory().executeActions(
+                    player, player.getLocation(), active.getTier().getBossSettings().getDeathActions(), resolver);
         }
+
+
 
         // TODO: slayerXp vergeben, deathActions/levelUpActions über Nexus Action API ausführen
 

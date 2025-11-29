@@ -6,12 +6,15 @@ import io.nexstudios.nexus.libs.commands.annotation.CommandPermission;
 import io.nexstudios.nexus.libs.commands.annotation.CommandCompletion;
 import io.nexstudios.nexus.libs.commands.annotation.Description;
 import io.nexstudios.nexus.libs.commands.annotation.Subcommand;
+import io.nexstudios.slayer.NexSlayer;
 import io.nexstudios.slayer.logic.SlayerService;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-@CommandAlias("nexslayer")
+@CommandAlias("slayer")
 public class SlayerCommand extends BaseCommand {
 
     private final SlayerService slayerService;
@@ -31,31 +34,39 @@ public class SlayerCommand extends BaseCommand {
         if (optionalPlayer.length > 0) {
             target = Bukkit.getPlayerExact(optionalPlayer[0]);
             if (target == null) {
-                sender.sendMessage("§cSpieler '" + optionalPlayer[0] + "' wurde nicht gefunden.");
+                NexSlayer.getInstance().getMessageSender().send(sender, "general.player-not-found");
                 return;
             }
         } else {
             if (!(sender instanceof Player player)) {
-                sender.sendMessage("§cDu musst einen Spieler angeben, wenn du kein Spieler bist.");
+                NexSlayer.getInstance().getMessageSender().send(sender, "general.player-only");
                 return;
             }
             target = player;
         }
 
         if (slayerService.hasActiveSlayer(target)) {
-            sender.sendMessage("§cDieser Spieler hat bereits einen aktiven Slayer.");
+            NexSlayer.getInstance().getMessageSender().send(sender, "general.slayer-already-started");
             return;
         }
 
         boolean started = slayerService.startSlayer(target, slayer, tier);
+
+        TagResolver resolver = TagResolver.resolver(
+                Placeholder.unparsed("slayer", slayer),
+                Placeholder.unparsed("player", target.getName()),
+                Placeholder.unparsed("tier", String.valueOf(tier))
+        );
+
         if (!started) {
-            sender.sendMessage("§cSlayer '" + slayer + "' oder Tier '" + tier + "' ist ungültig.");
+
+            NexSlayer.getInstance().getMessageSender().send(sender, "slayer.slayer-not-found", resolver);
             return;
         }
 
-        sender.sendMessage("§aSlayer §e" + slayer + " §a(Tier §e" + tier + "§a) für §e" + target.getName() + " §agestartet.");
+        NexSlayer.getInstance().getMessageSender().send(sender, "slayer.slayer-started", resolver);
         if (!target.equals(sender)) {
-            target.sendMessage("§aDein Slayer §e" + slayer + " §a(Tier §e" + tier + "§a) wurde gestartet.");
+            NexSlayer.getInstance().getMessageSender().send(target, "slayer.slayer-started-target", resolver);
         }
     }
 
@@ -69,27 +80,31 @@ public class SlayerCommand extends BaseCommand {
         if (optionalPlayer.length > 0) {
             target = Bukkit.getPlayerExact(optionalPlayer[0]);
             if (target == null) {
-                sender.sendMessage("§cSpieler '" + optionalPlayer[0] + "' wurde nicht gefunden.");
+                NexSlayer.getInstance().getMessageSender().send(sender, "general.player-not-found");
                 return;
             }
         } else {
             if (!(sender instanceof Player player)) {
-                sender.sendMessage("§cDu musst einen Spieler angeben, wenn du kein Spieler bist.");
+                NexSlayer.getInstance().getMessageSender().send(sender, "general.player-only");
                 return;
             }
             target = player;
         }
 
         if (!slayerService.hasActiveSlayer(target)) {
-            sender.sendMessage("§cDieser Spieler hat keinen aktiven Slayer.");
+            NexSlayer.getInstance().getMessageSender().send(sender, "general.slayer-not-started");
             return;
         }
 
         slayerService.stopSlayer(target);
 
-        sender.sendMessage("§aDer aktive Slayer von §e" + target.getName() + " §awurde gestoppt.");
+        TagResolver resolver = TagResolver.resolver(
+                Placeholder.unparsed("player", target.getName())
+        );
+
+        NexSlayer.getInstance().getMessageSender().send(target, "slayer.slayer-stopped-target", resolver);
         if (!target.equals(sender)) {
-            target.sendMessage("§cDein aktueller Slayer wurde gestoppt.");
+            NexSlayer.getInstance().getMessageSender().send(target, "slayer.slayer-stopped", resolver);
         }
     }
 }
