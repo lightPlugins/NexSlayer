@@ -55,21 +55,27 @@ public class SlayerReader {
         inventory.setLore(config.getStringList("inventory.lore"));
         slayer.setInventory(inventory);
 
-        // slayer-levels -> List<Double>
-        slayer.setSlayerLevels(config.getDoubleList("slayer-levels"));
+        // slayer-levels section (nested)
+        ConfigurationSection slayerLevelsSection = config.getConfigurationSection("slayer-levels");
+        if (slayerLevelsSection != null) {
+            // read "levels" list (XP required per level)
+            slayer.setSlayerLevels(slayerLevelsSection.getDoubleList("levels"));
 
-        // level-up-actions -> Map<level, List<Map<String, Object>>>
-        slayer.setLevelUpActions(readLevelUpActions(config, id));
+            // read "level-up-actions" list
+            slayer.setLevelUpActions(readLevelUpActions(slayerLevelsSection, id));
+        } else {
+            logger.warning("No 'slayer-levels' section found in slayer file <dark_purple>" + id + "<reset>.yml");
+        }
 
-        // slayer-tiers -> List<SlayerTier>
         slayer.setSlayerTiers(readSlayerTiers(config, id));
 
         return slayer;
     }
 
     @SuppressWarnings("unchecked")
-    private Map<Integer, List<Map<String, Object>>> readLevelUpActions(YamlConfiguration config, String id) {
-        List<Map<?, ?>> entries = config.getMapList("level-up-actions");
+    private Map<Integer, List<Map<String, Object>>> readLevelUpActions(ConfigurationSection section, String id) {
+        // section is expected to be "slayer-levels"
+        List<Map<?, ?>> entries = section.getMapList("level-up-actions");
         if (entries.isEmpty()) {
             logger.warning("No level-up-actions found in slayer file <dark_purple>" + id + "<reset>.yml");
             return Collections.emptyMap();

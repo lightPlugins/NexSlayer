@@ -25,7 +25,7 @@ public class SlayerCommand extends BaseCommand {
 
     @Subcommand("start")
     @CommandPermission("nexslayer.command.admin.start")
-    @Description("Startet einen Slayer für einen Spieler.")
+    @Description("Start a slayer via command")
     @CommandCompletion("@slayer_ids @slayer_tiers @players")
     public void onStart(CommandSender sender, String slayer, int tier, String... optionalPlayer) {
 
@@ -59,7 +59,6 @@ public class SlayerCommand extends BaseCommand {
         );
 
         if (!started) {
-
             NexSlayer.getInstance().getMessageSender().send(sender, "slayer.slayer-not-found", resolver);
             return;
         }

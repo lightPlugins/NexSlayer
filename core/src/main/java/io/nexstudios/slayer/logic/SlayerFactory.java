@@ -26,9 +26,6 @@ public class SlayerFactory implements Listener {
 
     public static final List<IVanillaDeathEvent> vanillaDeathEvents = new ArrayList<>();
 
-    /**
-     * Zentraler Service, auf den u.a. der SlayerCommand zugreift.
-     */
     private final SlayerService slayerService;
 
     public SlayerFactory(Plugin plugin, SlayerService slayerService) {
@@ -38,13 +35,11 @@ public class SlayerFactory implements Listener {
     }
 
     private void registerEvents() {
-        // MythicMobs-Hook, falls vorhanden
         if (NexusPlugin.getInstance().getMythicMobsHook() != null) {
             MythicMobsHook.registerMythicDeathEvent(new MythicDeathEvent());
             NexSlayer.nexusLogger.info("Successfully registered MythicMobs events.");
         }
 
-        // Vanilla-Death-Events
         registerVanillaDeathEvent(new VanillaDeathEvent());
     }
 
@@ -53,28 +48,23 @@ public class SlayerFactory implements Listener {
         vanillaDeathEvents.add(event);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onVanillaDeath(EntityDeathEvent event) {
         vanillaDeathEvents.forEach(single -> single.execute(event));
     }
 
-    /**
-     * Nur der Spieler, dem der Boss gehört, darf ihn hitten.
-     */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onBossDamage(EntityDamageByEntityEvent event) {
 
         if (!(event.getEntity() instanceof LivingEntity living)) {
             return;
         }
 
-        // Ist das überhaupt ein Slayer-Boss?
         SlayerService.ActiveSlayer active = slayerService.getActiveSlayerByBossUuid(living.getUniqueId());
         if (active == null) {
-            return; // kein getrackter Boss -> nichts tun
+            return;
         }
 
-        // Angreifenden Spieler bestimmen (direkt oder Projektil-Schütze)
         Player damagerPlayer = null;
 
         if (event.getDamager() instanceof Player p) {
@@ -91,11 +81,9 @@ public class SlayerFactory implements Listener {
             return;
         }
 
-        // Prüfen, ob der Boss diesem Spieler gehört
         if (!active.getPlayerId().equals(damagerPlayer.getUniqueId())) {
-            // falscher Spieler -> Schaden canceln
             event.setCancelled(true);
-            damagerPlayer.sendMessage("§c[Slayer] §7Du kannst diesen Boss nicht angreifen.");
+            NexSlayer.getInstance().getMessageSender().send(damagerPlayer, "slayer-not-yours");
         }
     }
 }

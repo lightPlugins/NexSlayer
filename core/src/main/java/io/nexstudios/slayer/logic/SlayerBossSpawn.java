@@ -45,6 +45,12 @@ public class SlayerBossSpawn {
                 LivingEntity le = MythicMobsHook.spawnMythicMob(boss.getId(), location);
                 applyHolo(boss, location, player, le);
                 return le;
+            } else {
+                NexSlayer.nexusLogger.error(List.of(
+                        "Slayer boss " + boss.getId() + " could not be spawned.",
+                        "MythicMobs is not installed!"
+                ));
+                return null;
             }
         }
 
@@ -62,7 +68,7 @@ public class SlayerBossSpawn {
         if(!type.isSpawnable()) {
             NexSlayer.nexusLogger.warning(List.of(
                     "Something went wrong with the boss spawn from boss id " + boss.getId(),
-                    "Boss type " + boss.getType() + " is not spawnable"
+                    "Boss type " + boss.getType() + " is not spawnable!"
             ));
             return null;
         }
@@ -101,7 +107,6 @@ public class SlayerBossSpawn {
                                 boss.getHologram().getSettings().getOffset().getZ()
                         ))
                         .perPlayer(p -> {
-                            // Zeit über SlayerService (ActiveSlayer.bossDeadline)
                             int remainingTime = NexSlayer.getInstance()
                                     .getSlayerService()
                                     .getRemainingBossTimeSeconds(p.getUniqueId());
@@ -119,7 +124,7 @@ public class SlayerBossSpawn {
 
                             TagResolver resolver = TagResolver.resolver(
                                     Placeholder.parsed("time", formattedTime),
-                                    Placeholder.parsed("player", p.getName()),
+                                    Placeholder.parsed("player", player.getName()),
                                     Placeholder.parsed("current-health", String.format("%.0f", currentHealth)),
                                     Placeholder.parsed("max-health", String.format("%.0f", maxHealth))
                             );
@@ -131,7 +136,6 @@ public class SlayerBossSpawn {
                             }
                             return lines;
                         })
-                        // Update-Intervall aus der Boss-Konfiguration
                         .refreshTicks(boss.getHologram().getSettings().getUpdateInterval())
                         .attachTo(le)
         );

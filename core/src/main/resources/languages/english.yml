@@ -17,6 +17,7 @@ slayer:
   slayer-failed: '<red>Slayer <dark_purple><slayer> <gray>(Tier <dark_purple><tier><gray>) failed!</red>'
   slayer-completed: '<gray>Slayer <dark_purple><slayer> <gray>(Tier <dark_purple><tier><gray>) successfully completed!'
   slayer-boss-spawned: '<gray>Boss <dark_purple><boss> <gray>spawned!'
+  slayer-not-yours: '<red>You cant damage other players slayer bosses!</red>'
 
 # ######################################################  #
 #                   INVENTORY Translations                #

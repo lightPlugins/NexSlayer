@@ -10,10 +10,9 @@ import java.util.List;
 @Setter
 public class SlayerBoss {
 
-    private String id; // Dateiname ohne .yml
+    private String id;
     private String type;
     private String name;
-
     private Settings settings;
     private Hologram hologram;
 

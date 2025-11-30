@@ -13,17 +13,10 @@ public class Slayer {
 
     private String id;
     private String name;
-
     private Inventory inventory;
-
     private List<Double> slayerLevels;
-
-    // Map<Level, List<ActionMap>> -> Nexus Action API
     private Map<Integer, List<Map<String, Object>>> levelUpActions;
-
     private List<SlayerTier> slayerTiers;
-
-    // Optional: die vollständige Yaml-Konfiguration
     private YamlConfiguration configuration;
 
     @Getter
@@ -50,7 +43,7 @@ public class Slayer {
         @Setter
         public static class MobSettings {
             private String mob;
-            private String kills; // YAML erlaubt "10-12" oder Einzelwerte → als String beibehalten
+            private String kills;
             private String chance;
             private List<Map<String, Object>> deathActions;
         }
@@ -65,7 +58,7 @@ public class Slayer {
             private RemoveBoss removeBoss;
             private Boolean removeVanillaLoot;
             private Boolean instantTargetPlayer;
-            private List<Map<String, Object>> deathActions; // Aktionen als Liste von Maps -> Nexus Action API
+            private List<Map<String, Object>> deathActions;
 
             @Getter
             @Setter
@@ -80,7 +73,7 @@ public class Slayer {
         @Setter
         public static class SlayerSettings {
             private Double startCosts;
-            private List<Map<String, Object>> requirements; // Aktionen als Liste von Maps -> Nexus Requirements API
+            private List<Map<String, Object>> requirements;
         }
     }
 }

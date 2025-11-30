@@ -13,44 +13,20 @@ inventory:
     - '<dark_purple>Click to view Boss!'
 
 slayer-levels:
-  - 50
-  - 100
-  - 300
-  - 500
-  - 1000
-  - 15000
+  levels:
+    - 100
+    - 300
+    - 750
 
-level-up-actions:
-  - level: 1
-    actions:
-      - id: vault-add
-        amount: '2000'
-        multiplier: '1'
-  - level: 2
-    actions:
-      - id: vault-add
-        amount: '2000'
-        multiplier: '1'
-  - level: 3
-    actions:
-      - id: vault-add
-        amount: '2000'
-        multiplier: '1'
-  - level: 4
-    actions:
-      - id: vault-add
-        amount: '2000'
-        multiplier: '1'
-  - level: 5
-    actions:
-      - id: vault-add
-        amount: '2000'
-        multiplier: '1'
-  - level: 6
-    actions:
-      - id: vault-add
-        amount: '2000'
-        multiplier: '1'
+  level-up-actions:
+    - level: 1
+      actions:
+        - id: message
+          message: "<green>Du hast Slayer Level 1 erreicht!</green>"
+    - level: 2
+      actions:
+        - id: message
+          message: "<green>Slayer Level 2! Weiter so.</green>"
 
 slayer-tiers:
   - name: 'Zombie Slayer I'

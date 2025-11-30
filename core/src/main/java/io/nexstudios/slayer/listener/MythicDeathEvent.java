@@ -30,20 +30,16 @@ public class MythicDeathEvent implements IMythicDeathEvent {
             return;
         }
 
-        // Bukkit-Entity aus ActiveMob holen
         if (!(activeMob.getEntity().getBukkitEntity() instanceof LivingEntity living)) {
             return;
         }
 
-        // 1) MythicMob als normalen Slayer-Kill zählen (für mob: "mythicmobs:<id>")
         slayerService.handleMythicMobDeath(killer, mythicMob.getInternalName(), living.getLocation());
-
-        // 2) Gleichzeitig prüfen, ob es ein Slayer-Boss ist
         slayerService.handleBossDeath(living);
     }
 
     @Override
     public void execute(EntityDamageByEntityEvent event, ActiveMob activeMob) {
-        // Platz für spätere Features (InstantTarget, Teleport, etc.).
+        // later more boss logic and features
     }
 }

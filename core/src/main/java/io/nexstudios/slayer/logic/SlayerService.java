@@ -1,11 +1,16 @@
 package io.nexstudios.slayer.logic;
 
 import io.nexstudios.nexus.bukkit.NexusPlugin;
+import io.nexstudios.nexus.bukkit.actions.NexParams;
+import io.nexstudios.nexus.bukkit.effects.stats.NexusStat;
+import io.nexstudios.nexus.bukkit.levels.LevelProgress;
+import io.nexstudios.nexus.bukkit.levels.LevelService;
 import io.nexstudios.slayer.NexSlayer;
 import io.nexstudios.slayer.slayer.SlayerReader;
 import io.nexstudios.slayer.slayer.models.Slayer;
 import io.nexstudios.slayer.slayer.models.SlayerBoss;
 import io.nexstudios.slayer.slayer.SlayerBossReader;
+import lombok.Setter;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Bukkit;
@@ -15,19 +20,16 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class SlayerService {
 
     public enum Stage {
-        KILLING,       // Spieler muss Mobs töten
-        BOSS_ACTIVE,   // Boss ist gespawnt
-        COMPLETED,     // fertig
-        FAILED         // fehlgeschlagen (Timeout, Quit, etc.)
+        KILLING,
+        BOSS_ACTIVE,
+        COMPLETED,
+        FAILED
     }
 
     public static class ActiveSlayer {
@@ -36,13 +38,17 @@ public class SlayerService {
         private final Slayer slayer;
         private final Slayer.SlayerTier tier;
 
+        @Setter
         private Stage stage;
         private int requiredKills;
         private int currentKills;
 
+        @Setter
         private UUID bossUuid;
+        @Setter
         private long bossSpawnTime;
-        private long bossDeadline; // 0 = kein Timeout
+        @Setter
+        private long bossDeadline; // 0 = no timeout
 
         public ActiveSlayer(UUID playerId,
                             Slayer slayer,
@@ -59,65 +65,40 @@ public class SlayerService {
         public UUID getPlayerId() {
             return playerId;
         }
-
         public Slayer getSlayer() {
             return slayer;
         }
-
         public Slayer.SlayerTier getTier() {
             return tier;
         }
-
         public Stage getStage() {
             return stage;
         }
-
-        public void setStage(Stage stage) {
-            this.stage = stage;
-        }
-
         public int getRequiredKills() {
             return requiredKills;
         }
-
         public int getCurrentKills() {
             return currentKills;
         }
-
         public void incrementKills() {
             this.currentKills++;
         }
-
         public UUID getBossUuid() {
             return bossUuid;
         }
-
-        public void setBossUuid(UUID bossUuid) {
-            this.bossUuid = bossUuid;
-        }
-
         public long getBossSpawnTime() {
             return bossSpawnTime;
         }
-
-        public void setBossSpawnTime(long bossSpawnTime) {
-            this.bossSpawnTime = bossSpawnTime;
-        }
-
         public long getBossDeadline() {
             return bossDeadline;
         }
 
-        public void setBossDeadline(long bossDeadline) {
-            this.bossDeadline = bossDeadline;
-        }
     }
 
     private final SlayerReader slayerReader;
     private final SlayerBossReader bossReader;
     private final SlayerBossSpawn bossSpawn;
 
-    // Player → Aktiver Slayer
     private final Map<UUID, ActiveSlayer> activeSlayers = new HashMap<>();
 
     public SlayerService(SlayerReader slayerReader, SlayerBossReader bossReader) {
@@ -144,14 +125,14 @@ public class SlayerService {
                 .collect(Collectors.toList());
     }
 
-    public java.util.List<String> getTierIndicesFor(String slayerId) {
+    public List<String> getTierIndicesFor(String slayerId) {
         Slayer slayer = slayerReader.getSlayerById(slayerId);
         if (slayer == null || slayer.getSlayerTiers() == null) {
-            return java.util.Collections.emptyList();
+            return Collections.emptyList();
         }
-        java.util.List<String> result = new java.util.ArrayList<>();
+        List<String> result = new java.util.ArrayList<>();
         for (int i = 0; i < slayer.getSlayerTiers().size(); i++) {
-            result.add(String.valueOf(i + 1)); // 1-basiert
+            result.add(String.valueOf(i + 1));
         }
         return result;
     }
@@ -180,9 +161,6 @@ public class SlayerService {
         return activeSlayers.get(player.getUniqueId());
     }
 
-    /**
-     * Startet einen Slayer auf Basis einer slayerId und eines Tier-Index (1-basiert).
-     */
     public boolean startSlayer(Player player, String slayerId, int tierIndex) {
 
         Slayer slayer = slayerReader.getSlayerById(slayerId);
@@ -194,15 +172,17 @@ public class SlayerService {
         List<Slayer.SlayerTier> tiers = slayer.getSlayerTiers();
         int idx = tierIndex - 1;
         if (tiers == null || idx < 0 || idx >= tiers.size()) {
-            NexSlayer.nexusLogger.warning("Ungültiges Tier " + tierIndex + " für Slayer " + slayerId);
+            NexSlayer.nexusLogger.warning(List.of(
+                    "Invalid Slayer Tier " + tierIndex + " for slayer " + slayerId,
+                    "Valid values are 1-" + tiers.size()
+            ));
             return false;
         }
 
         Slayer.SlayerTier tier = tiers.get(idx);
 
-        // Kills aus MobSettings lesen (erstmal als einfache Zahl)
         if (tier.getMobSettings() == null || tier.getMobSettings().getKills() == null) {
-            NexSlayer.nexusLogger.warning("MobSettings oder Kills fehlen für Slayer " + slayerId + " Tier " + tierIndex);
+            NexSlayer.nexusLogger.warning("MobSettings or Kills are missing for Slayer " + slayerId + " Tier " + tierIndex);
             return false;
         }
 
@@ -210,8 +190,10 @@ public class SlayerService {
         try {
             requiredKills = Integer.parseInt(tier.getMobSettings().getKills());
         } catch (NumberFormatException e) {
-            NexSlayer.nexusLogger.warning("Kills ist keine Zahl für Slayer " + slayerId + " Tier " + tierIndex +
-                    " (Wert: " + tier.getMobSettings().getKills() + ")");
+            NexSlayer.nexusLogger.warning(List.of(
+                    "'Kills' is not a number for slayer " + slayerId + " in tier " + tierIndex,
+                    "Current value: " + tier.getMobSettings().getKills()
+            ));
             return false;
         }
 
@@ -221,16 +203,12 @@ public class SlayerService {
         return true;
     }
 
-    /**
-     * Entfernt den aktiven Slayer eines Spielers und macht ggf. Cleanup.
-     */
     public void stopSlayer(Player player) {
         ActiveSlayer active = activeSlayers.remove(player.getUniqueId());
         if (active == null) {
             return;
         }
 
-        // Boss ggf. entfernen
         if (active.getBossUuid() != null) {
             Entity boss = Bukkit.getEntity(active.getBossUuid());
             if (boss != null && !boss.isDead()) {
@@ -239,9 +217,6 @@ public class SlayerService {
         }
     }
 
-    /**
-     * Wird von VanillaDeathEvent aufgerufen.
-     */
     public void handleVanillaMobDeath(Player killer, EntityType type, Location spawnLocation) {
 
         ActiveSlayer active = activeSlayers.get(killer.getUniqueId());
@@ -258,7 +233,7 @@ public class SlayerService {
             return;
         }
 
-        String rawMob = tier.getMobSettings().getMob().toLowerCase(); // z.B. "minecraft:zombie" oder "mythicmobs:boss"
+        String rawMob = tier.getMobSettings().getMob().toLowerCase();
         String namespace = "minecraft";
         String key = rawMob;
 
@@ -266,21 +241,24 @@ public class SlayerService {
         if (split.length == 2) {
             namespace = split[0];
             key = split[1];
+        } else {
+            NexSlayer.nexusLogger.warning(List.of(
+                    "Invalid mob format for Slayer tier: " + tier.getMobSettings().getMob(),
+                    "Expected format: 'namespace:key'"
+            ));
+            return;
         }
 
-        // Nicht für mythicmobs-Einträge zuständig
         if (!namespace.equals("minecraft")) {
             return;
         }
 
-        String bukkitName = type.name().toLowerCase(); // "zombie"
+        String bukkitName = type.name().toLowerCase();
         if (!bukkitName.equals(key)) {
-            return; // falscher Mob
+            return;
         }
 
         active.incrementKills();
-
-        killer.sendMessage("§a[Slayer] §7Kills: §e" + active.getCurrentKills() + "§7/§e" + active.getRequiredKills());
 
         if (active.getCurrentKills() >= active.getRequiredKills()) {
             spawnBoss(killer, active, spawnLocation);
@@ -303,7 +281,7 @@ public class SlayerService {
             return;
         }
 
-        String rawMob = tier.getMobSettings().getMob().toLowerCase(); // z.B. "mythicmobs:my_boss"
+        String rawMob = tier.getMobSettings().getMob().toLowerCase();
         String namespace = "minecraft";
         String key = rawMob;
 
@@ -311,16 +289,21 @@ public class SlayerService {
         if (split.length == 2) {
             namespace = split[0];
             key = split[1];
+        } else {
+            NexSlayer.nexusLogger.warning(List.of(
+                    "Invalid mob format for Slayer tier: " + tier.getMobSettings().getMob(),
+                    "Expected format: 'namespace:key'"
+            ));
+            return;
         }
 
-        // Nur für mythicmobs-Einträge zuständig
         if (!namespace.equals("mythicmobs")) {
             return;
         }
 
         String internalName = mythicInternalName.toLowerCase();
         if (!internalName.equals(key)) {
-            return; // falscher MythicMob
+            return;
         }
 
         active.incrementKills();
@@ -328,7 +311,6 @@ public class SlayerService {
         killer.sendMessage("§a[Slayer] §7Kills: §e" + active.getCurrentKills() + "§7/§e" + active.getRequiredKills());
 
         if (active.getCurrentKills() >= active.getRequiredKills()) {
-            // Boss-Phase starten (kann wieder Mythic oder Vanilla sein, je nach Boss-Config)
             spawnBoss(killer, active, spawnLocation);
         }
     }
@@ -338,7 +320,7 @@ public class SlayerService {
         Slayer.SlayerTier.BossSettings bossSettings = active.getTier().getBossSettings();
         if (bossSettings == null) {
             NexSlayer.nexusLogger.warning("Could not spawn Boss for Slayer " + active.getSlayer().getId() + " Tier " + active.getTier().getName() + ": BossSettings is missing!");
-            completeSlayer(player, active); // direkt abschließen, wenn kein Boss definiert
+            completeSlayer(player, active);
             return;
         }
 
@@ -472,16 +454,42 @@ public class SlayerService {
                 Placeholder.parsed("tier", active.getTier().getName())
         );
 
+        Map<String, String> paramMap = new HashMap<>();
+        paramMap.put("boss", active.getSlayer().getName());
+        paramMap.put("tier", active.getTier().getName());
+
+        NexParams params = NexParams.of(paramMap, resolver);
+
         if (player != null && player.isOnline()) {
             NexSlayer.getInstance().getMessageSender().send(player, "slayer.slayer-completed", resolver);
-            NexusPlugin.getInstance().getActionFactory().executeActions(
-                    player, player.getLocation(), active.getTier().getBossSettings().getDeathActions(), resolver);
+
+            NexusPlugin.getInstance()
+                    .getActionFactory()
+                    .newExecution()
+                    .actor(player)
+                    .targetLocation(player.getLocation())
+                    .actions(active.getTier().getBossSettings().getDeathActions())
+                    .params(params)
+                    .execute();
+
+            // --- Slayer-XP auf das passende Slayer-Levelsystem buchen ---
+            Slayer.SlayerTier.BossSettings bossSettings = active.getTier().getBossSettings();
+            if (bossSettings != null && bossSettings.getSlayerXp() != null) {
+                LevelService levelService = NexSlayer.getInstance().getLevelService();
+                if (levelService != null) {
+                    String ns = "nexslayer";
+                    String key = active.getSlayer().getId(); // z.B. "zombie-slayer"
+                    double xp = bossSettings.getSlayerXp();
+
+                    LevelProgress progress = levelService.addXp(player.getUniqueId(), ns, key, xp);
+
+                    // Optional: Feedback an den Spieler
+                    player.sendMessage("§a[Slayer] §7Du erhältst §e" + xp + "§7 XP für §e" + key
+                            + "§7 (Level §e" + progress.getLevel() + "§7).");
+
+                }
+            }
+            activeSlayers.remove(player.getUniqueId());
         }
-
-
-
-        // TODO: slayerXp vergeben, deathActions/levelUpActions über Nexus Action API ausführen
-
-        activeSlayers.remove(active.getPlayerId());
     }
 }
