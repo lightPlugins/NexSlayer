@@ -25,7 +25,7 @@ repositories {
 
 dependencies {
     paperweight.paperDevBundle("1.21.8-R0.1-SNAPSHOT")
-    compileOnly(files("C:/Users/philipp/IdeaProjects/Nexus/build/libs/Nexus-1.0.0-all.jar"))
+    compileOnly(files("C:/Users/phili/IdeaProjects/Nexus/build/libs/Nexus-1.0.0-all.jar"))
     compileOnly("io.lumine:Mythic-Dist:5.9.5")
 }
 

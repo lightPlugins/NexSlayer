@@ -14,6 +14,7 @@ import io.nexstudios.nexus.bukkit.utils.NexusLogger;
 import io.nexstudios.nexus.libs.commands.PaperCommandManager;
 import io.nexstudios.slayer.commands.ReloadCommand;
 import io.nexstudios.slayer.commands.SlayerCommand;
+import io.nexstudios.slayer.commands.SlayerXpCommand;
 import io.nexstudios.slayer.logic.SlayerFactory;
 import io.nexstudios.slayer.logic.SlayerService;
 import io.nexstudios.slayer.slayer.SlayerBossReader;
@@ -63,14 +64,15 @@ public class NexSlayer extends JavaPlugin {
         nexusLogger.info("Starting up ...");
         nexusLogger.info("Register commands ...");
         commandManager = new PaperCommandManager(this);
-        nexusLogger.info("Load files and drop tables ...");
+        nexusLogger.info("Hooking into Nexus Level API ...");
+        levelService = NexusPlugin.getInstance().getLevelService();
+        nexusLogger.info("Load slayer and boss files ...");
         onReload();
         slayerService = new SlayerService(slayerReader, slayerBossReader);
         registerCommands();
         registerEvents();
         slayerFactory = new SlayerFactory(this, slayerService);
         invService = new InvService(this, new DefaultNexItemRenderer(), nexusLanguage);
-        levelService = NexusPlugin.getInstance().getLevelService();
         registerAllSlayerLevels();
         nexusLogger.info("Successfully started up.");
     }
@@ -85,6 +87,7 @@ public class NexSlayer extends JavaPlugin {
         loadNexusFiles();
         readBosses();
         readSlayers();
+        registerAllSlayerLevels();
         messageSender = new MessageSender(nexusLanguage);
     }
 
@@ -92,6 +95,7 @@ public class NexSlayer extends JavaPlugin {
 
         commandManager.registerCommand(new ReloadCommand());
         commandManager.registerCommand(new SlayerCommand(slayerService));
+        commandManager.registerCommand(new SlayerXpCommand());
 
         commandManager.getCommandCompletions().registerAsyncCompletion("slayer_ids", context ->
                 new ArrayList<>(slayerService.getAllSlayerIds())
